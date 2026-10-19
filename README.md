@@ -267,6 +267,30 @@ Click **More info → Run anyway**. Signed builds are on the roadmap.
 
 **Where are the logs?** `%LOCALAPPDATA%\Chit\chit.log` (tray → **Open log**). Please attach it to bug reports.
 
+### Windows audio device troubleshooting
+
+If the bottom indicator bar stays flat, audio capture fails, or text is not generated:
+
+- **Windows Privacy & Microphone Permissions:**
+  Windows requires explicit permission for desktop applications to access audio input:
+  1. Go to **Settings → Privacy & security → Microphone** (Windows 11) or **Settings → Privacy → Microphone** (Windows 10).
+  2. Verify that **Microphone access** is turned **On**.
+  3. Verify that **Let desktop apps access your microphone** is toggled **On**. If this is turned off, Windows blocks audio capture at the API level and WASAPI streams will receive silence without raising an error.
+
+- **Default Microphone Selection:**
+  1. Open **Settings → System → Sound** (or press `Win+R`, type `mmsys.cpl`, and select the **Recording** tab).
+  2. Set your primary microphone as the **Default Device** and **Default Communication Device**.
+  3. Speak into your microphone and verify the Windows input level meter responds. If levels are too low, adjust input volume or mic boost.
+  4. In device properties under the **Advanced** tab, ensure **Exclusive Mode** ("Allow applications to take exclusive control of this device") is not locked exclusively by another application.
+
+- **WASAPI Device Configuration in Chit:**
+  Chit captures audio via Windows WASAPI endpoints:
+  1. Right-click the Chit tray icon and inspect the **Microphone** menu.
+  2. If you have multiple input devices (e.g. built-in array, USB headset, external mic, or virtual audio device), select your specific hardware microphone directly instead of relying on the system default.
+  3. If you plug in a new USB or Bluetooth microphone while Chit is running, open the tray menu or restart Chit to refresh WASAPI device enumeration.
+  4. For Bluetooth headsets, ensure the device is connected in Hands-Free/Headset mode (HFP/HSP) rather than Stereo output only (A2DP).
+
+
 ## Roadmap
 
 Next up: signed builds, a customizable hotkey, transcription history, a model manager, a custom
