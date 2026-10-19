@@ -7,6 +7,7 @@ import threading
 from .paths import DATA_DIR, SETTINGS_PATH
 
 DEFAULTS = {
+    "hotkey": "caps_lock",  # caps_lock | rctrl | ralt | f9
     "cleanup": "smart",  # smart | light | off
     "language": "en",  # en | hi | auto (auto can drift between languages mid-dictation)
     "asr_device": None,  # chosen by the first-run benchmark: NPU / GPU / CPU

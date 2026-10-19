@@ -137,6 +137,7 @@ Right-click the Chit icon near the clock (it follows your light/dark theme):
 | **Start / Stop dictation** | Same as clicking the bar |
 | **Cleanup** | **Smart** (AI rewrite, default) · **Light** (remove fillers and repeats only) · **Off** (exact words) |
 | **Language** | **English** (default) · **Hindi** · **Auto-detect** (can switch languages mid-dictation) |
+| **Hotkey** | **Caps Lock** (default) · **Right Ctrl** · **Right Alt** · **F9** |
 | **Microphone** | System default or a specific input |
 | **Sounds** | Start/stop chimes on or off |
 | **Start at login** | Start Chit when you sign in (on by default) |

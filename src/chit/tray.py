@@ -159,6 +159,15 @@ class Tray:
                     radio("language", "auto", "Auto-detect (may switch languages)"),
                 ),
             ),
+            Item(
+                "Hotkey",
+                Menu(
+                    radio("hotkey", "caps_lock", "Caps Lock"),
+                    radio("hotkey", "rctrl", "Right Ctrl"),
+                    radio("hotkey", "ralt", "Right Alt"),
+                    radio("hotkey", "f9", "F9"),
+                ),
+            ),
             Item("Microphone", Menu(mic_items)),
             Item("Sounds", lambda: app.set_setting("sounds", not s["sounds"]), checked=lambda item: s["sounds"]),
             Item(
@@ -174,15 +183,23 @@ class Tray:
         self.icon = _icon_class()(APP_NAME, app_icon(64, system_theme()), self._title(False), menu=menu)
         self.listening = None
 
-    @staticmethod
-    def _title(listening):
-        return f"{APP_NAME}: listening..." if listening else f"{APP_NAME}: hold Caps Lock to talk"
+    def _title(self, listening):
+        if listening:
+            return f"{APP_NAME}: listening..."
+        from .hotkey import get_hotkey
+
+        name = get_hotkey(self.app.settings["hotkey"]).label
+        return f"{APP_NAME}: hold {name} to talk"
 
     def set_listening(self, listening):
         if listening != self.listening:
             self.listening = listening
             self.icon.icon = app_icon(64, system_theme(), listening)
             self.icon.title = self._title(listening)
+
+    def update_title(self):
+        if self.icon:
+            self.icon.title = self._title(self.listening)
 
     def start(self, notify=None):
         def setup(icon):
