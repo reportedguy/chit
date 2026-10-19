@@ -49,7 +49,7 @@ jobs:
         run: choco install innosetup -y --no-progress
       - name: Build Chit.exe and installer
         run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -Python python
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: chit-installer
           path: build/release/
