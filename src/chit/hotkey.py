@@ -4,22 +4,23 @@ Keeping the hook in a tiny process means nothing in the main app (Whisper, the L
 pasting, the UI) can ever slow the hook down enough for Windows to silently remove it.
 
 Caps Lock stays a normal Caps Lock: a press goes straight to Windows, so a tap toggles
-instantly. Only when the key is still held after HOLD_S does it become dictation; then
+instantly. Only when the key is still held after hold_ms does it become dictation; then
 the helper switches Caps Lock back (undoing the press's toggle) and swallows the rest
 of that press. While Chit is recording (hands-free), Caps Lock is swallowed entirely.
 
-helper -> app:  ("hold", t)                  the key has been held for HOLD_S: start
+helper -> app:  ("hold", t)                  the key has been held for hold_ms: start
                 ("tap", t_down, t_up)        a normal tap (already handled by Windows)
                 ("key", down: bool, t)       presses while recording / end of a hold
                 ("esc", t)
 app -> helper:  ("recording", bool)          Esc is only captured while recording
+                ("hold_ms", int)             update hold time
 """
 
 import os
 import threading
 import time
 
-from .gesture import HOLD_S
+from .gesture import DEFAULT_HOLD_MS
 
 WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP = 0x100, 0x101, 0x104, 0x105
 LLKHF_INJECTED = 0x10
@@ -85,7 +86,7 @@ def _send_caps(*flags):
         ctypes.windll.user32.keybd_event(VK_CAPITAL, 0x3A, f, CHIT_TAG)
 
 
-def hook_main(conn, vk, accept_injected=False):
+def hook_main(conn, vk, accept_injected=False, hold_ms=DEFAULT_HOLD_MS):
     import ctypes
 
     from pynput import keyboard
@@ -95,6 +96,7 @@ def hook_main(conn, vk, accept_injected=False):
     lock = threading.Lock()
     send_lock = threading.Lock()
     listener = None
+    state = {"hold_s": hold_ms / 1000.0}
 
     def send(msg):
         with send_lock:
@@ -112,6 +114,9 @@ def hook_main(conn, vk, accept_injected=False):
             if kind == "recording":
                 with lock:
                     key.recording = value
+            elif kind == "hold_ms":
+                with lock:
+                    state["hold_s"] = value / 1000.0
 
     def hold_timer(down_at):
         with lock:
@@ -151,10 +156,11 @@ def hook_main(conn, vk, accept_injected=False):
                 (passthrough, msgs), start_timer = key.release(now), False
             else:
                 return True
+            hold_s = state["hold_s"]
         for m in msgs:
             send(m)
         if start_timer:
-            threading.Timer(HOLD_S, hold_timer, args=(now,)).start()
+            threading.Timer(hold_s, hold_timer, args=(now,)).start()
         if not passthrough:
             listener.suppress_event()
         return True
@@ -168,11 +174,12 @@ def hook_main(conn, vk, accept_injected=False):
 class KeyHook:
     """App-side handle: runs the helper, restarts it if it dies, forwards its events."""
 
-    def __init__(self, vk, on_event, accept_injected=False):
+    def __init__(self, vk, on_event, accept_injected=False, hold_ms=DEFAULT_HOLD_MS):
         import multiprocessing as mp
 
         self.on_event = on_event
         self.vk, self.accept_injected = vk, accept_injected
+        self.hold_ms = hold_ms
         self.ctx = mp.get_context("spawn")
         self.recording = False
         self.stopping = False
@@ -182,7 +189,10 @@ class KeyHook:
     def _start(self):
         parent, child = self.ctx.Pipe()
         self.proc = self.ctx.Process(
-            target=hook_main, args=(child, self.vk, self.accept_injected), daemon=True, name="chit-keyhook"
+            target=hook_main,
+            args=(child, self.vk, self.accept_injected, self.hold_ms),
+            daemon=True,
+            name="chit-keyhook",
         )
         self.proc.start()
         child.close()
@@ -208,6 +218,13 @@ class KeyHook:
         self.recording = recording
         try:
             self.conn.send(("recording", recording))
+        except (BrokenPipeError, OSError):
+            pass
+
+    def set_hold_ms(self, hold_ms):
+        self.hold_ms = hold_ms
+        try:
+            self.conn.send(("hold_ms", hold_ms))
         except (BrokenPipeError, OSError):
             pass
 

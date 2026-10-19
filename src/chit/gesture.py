@@ -10,17 +10,23 @@ straight to Windows and only reports what happened:
 - esc / click:    Esc cancels; clicking the on-screen bar starts hands-free or finishes.
 """
 
-HOLD_S = 0.40  # held this long = dictation; anything shorter is a plain Caps Lock press
+DEFAULT_HOLD_MS = 400
+HOLD_S = 0.40  # default hold time for backward compatibility
 DOUBLE_S = 0.35  # max gap between the taps of a double-tap
 
 
 class Gestures:
-    def __init__(self, start, finish, cancel, hands_free):
+    def __init__(self, start, finish, cancel, hands_free, hold_ms=DEFAULT_HOLD_MS):
         self._start, self._finish, self._cancel, self._hands_free = start, finish, cancel, hands_free
+        self.set_hold_ms(hold_ms)
         self.state = "idle"
         self._last_tap_up = None  # idle: when the previous plain tap ended
         self._tap_down = None  # hands-free: when the current tap went down
         self._pending_tap = None  # hands-free: when the previous short tap ended
+
+    def set_hold_ms(self, hold_ms):
+        self.hold_ms = hold_ms
+        self.hold_s = hold_ms / 1000.0
 
     def _go_idle(self):
         self.state = "idle"
@@ -59,7 +65,7 @@ class Gestures:
             self._finish()
         elif self.state == "hands_free":
             # Only short presses count as taps.
-            if self._tap_down is not None and t - self._tap_down < HOLD_S:
+            if self._tap_down is not None and t - self._tap_down < self.hold_s:
                 self._pending_tap = t
             self._tap_down = None
 

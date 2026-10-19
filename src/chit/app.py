@@ -65,7 +65,11 @@ class App:
         self.stream = None
         self.segmenter = Segmenter(self._on_phrase)
         self.gestures = Gestures(
-            start=self._start, finish=self._finish, cancel=self._cancel, hands_free=self._set_hands_free
+            start=self._start,
+            finish=self._finish,
+            cancel=self._cancel,
+            hands_free=self._set_hands_free,
+            hold_ms=self.settings["hold_ms"],
         )
         self.overlay = self.tray = self.hook = None
 
@@ -91,6 +95,11 @@ class App:
         self.settings.set(key, value)
         if key == "debug_log":
             logmod.debug_text = value
+        elif key == "hold_ms":
+            if self.gestures:
+                self.gestures.set_hold_ms(value)
+            if self.hook:
+                self.hook.set_hold_ms(value)
         log(f"Setting {key} = {value}")
 
     def device_summary(self):
@@ -149,7 +158,12 @@ class App:
         threading.Thread(target=self._load, daemon=True, name="loader").start()
         threading.Thread(target=self._control, daemon=True, name="control").start()
         threading.Thread(target=self._worker, daemon=True, name="worker").start()
-        self.hook = KeyHook(VK_CAPITAL, self.on_hook, accept_injected=self.args.test_injected_keys)
+        self.hook = KeyHook(
+            VK_CAPITAL,
+            self.on_hook,
+            accept_injected=self.args.test_injected_keys,
+            hold_ms=self.settings["hold_ms"],
+        )
         self.overlay = Overlay(self)
         self.tray = Tray(self)
         self.tray.start(
