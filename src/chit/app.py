@@ -25,9 +25,9 @@ from . import sounds
 from .audio import FileStream, MicStream, Segmenter
 from .config import Settings
 from .gesture import Gestures
+from .hotkey import get_hotkey
 from .log import log, log_text
 
-VK_CAPITAL = 0x14
 HANDS_FREE_IDLE_S = 60  # hands-free stops itself after this long without a voice
 MAX_DICTATION_S = 600  # hard cap per dictation
 MIC_STALL_S = 5  # no audio from the mic for this long = it died
@@ -91,6 +91,11 @@ class App:
         self.settings.set(key, value)
         if key == "debug_log":
             logmod.debug_text = value
+        elif key == "hotkey":
+            if self.hook:
+                self.hook.set_vk(get_hotkey(value).vk)
+            if self.tray:
+                self.tray.update_title()
         log(f"Setting {key} = {value}")
 
     def device_summary(self):
@@ -142,20 +147,21 @@ class App:
             log(f"Cleanup model unavailable, using light cleanup: {e}")
 
     def run(self):
-        from .hotkey import KeyHook
+        from .hotkey import KeyHook, get_hotkey
         from .overlay import Overlay
         from .tray import Tray
 
         threading.Thread(target=self._load, daemon=True, name="loader").start()
         threading.Thread(target=self._control, daemon=True, name="control").start()
         threading.Thread(target=self._worker, daemon=True, name="worker").start()
-        self.hook = KeyHook(VK_CAPITAL, self.on_hook, accept_injected=self.args.test_injected_keys)
+        hotkey = get_hotkey(self.settings["hotkey"])
+        self.hook = KeyHook(hotkey.vk, self.on_hook, accept_injected=self.args.test_injected_keys)
         self.overlay = Overlay(self)
         self.tray = Tray(self)
         self.tray.start(
             notify=None
             if self.args.background
-            else "Chit is running. Hold Caps Lock to talk, or double-tap it for hands-free."
+            else f"Chit is running. Hold {hotkey.label} to talk, or double-tap it for hands-free."
         )
         threading.Thread(target=self._wait_for_show_requests, daemon=True).start()
         log("Chit is running")
@@ -170,7 +176,8 @@ class App:
         handle = kernel32.CreateEventW(None, False, False, SHOW_EVENT)
         while True:
             if kernel32.WaitForSingleObject(handle, 0xFFFFFFFF) == 0 and self.overlay:
-                self.overlay.show_message("Chit is running · hold Caps Lock to talk", seconds=3)
+                hotkey = get_hotkey(self.settings["hotkey"])
+                self.overlay.show_message(f"Chit is running · hold {hotkey.label} to talk", seconds=3)
 
     # ------------------------------------------------------------------ #
     # Control thread

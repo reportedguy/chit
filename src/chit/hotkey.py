@@ -3,10 +3,11 @@
 Keeping the hook in a tiny process means nothing in the main app (Whisper, the LLM,
 pasting, the UI) can ever slow the hook down enough for Windows to silently remove it.
 
-Caps Lock stays a normal Caps Lock: a press goes straight to Windows, so a tap toggles
-instantly. Only when the key is still held after HOLD_S does it become dictation; then
-the helper switches Caps Lock back (undoing the press's toggle) and swallows the rest
-of that press. While Chit is recording (hands-free), Caps Lock is swallowed entirely.
+The trigger key (default Caps Lock) stays normal: a press goes straight to Windows,
+so a tap toggles/acts instantly. Only when the key is still held after HOLD_S does it
+become dictation; when configured for Caps Lock, the helper switches Caps Lock back
+(undoing the press's toggle) and swallows the rest of that press. While Chit is
+recording (hands-free), the trigger key is swallowed entirely.
 
 helper -> app:  ("hold", t)                  the key has been held for HOLD_S: start
                 ("tap", t_down, t_up)        a normal tap (already handled by Windows)
@@ -18,12 +19,36 @@ app -> helper:  ("recording", bool)          Esc is only captured while recordin
 import os
 import threading
 import time
+from typing import NamedTuple
 
 from .gesture import HOLD_S
 
 WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP = 0x100, 0x101, 0x104, 0x105
 LLKHF_INJECTED = 0x10
 VK_SHIFT, VK_ESCAPE, VK_CAPITAL = 0x10, 0x1B, 0x14
+VK_RCONTROL, VK_RMENU, VK_F9 = 0xA3, 0xA5, 0x78
+
+
+class HotkeyDef(NamedTuple):
+    label: str
+    vk: int
+
+
+HOTKEYS = {
+    "caps_lock": HotkeyDef("Caps Lock", VK_CAPITAL),
+    "rctrl": HotkeyDef("Right Ctrl", VK_RCONTROL),
+    "ralt": HotkeyDef("Right Alt", VK_RMENU),
+    "f9": HotkeyDef("F9", VK_F9),
+    "right_ctrl": HotkeyDef("Right Ctrl", VK_RCONTROL),
+    "right_alt": HotkeyDef("Right Alt", VK_RMENU),
+}
+
+DEFAULT_HOTKEY = "caps_lock"
+
+
+def get_hotkey(name):
+    return HOTKEYS.get(name, HOTKEYS[DEFAULT_HOTKEY])
+
 
 # Marks keystrokes Chit sends itself (switching Caps Lock back after a hold), so the hook
 # lets them through instead of treating them as the user's key.
@@ -36,7 +61,7 @@ LOST_KEYUP_S = 1.2
 
 
 class TriggerKey:
-    """Decides, per Caps Lock event, whether Windows sees it and what the app is told.
+    """Decides, per trigger key event, whether Windows sees it and what the app is told.
     Pure logic (no Windows calls) so it can be unit-tested."""
 
     def __init__(self):
@@ -176,6 +201,7 @@ class KeyHook:
         self.ctx = mp.get_context("spawn")
         self.recording = False
         self.stopping = False
+        self._lock = threading.RLock()
         self._start()
         threading.Thread(target=self._pump, daemon=True).start()
 
@@ -194,27 +220,60 @@ class KeyHook:
 
         while not self.stopping:
             try:
-                msg = self.conn.recv()
+                conn = self.conn
+                msg = conn.recv()
             except (EOFError, OSError):
                 if self.stopping:
                     return
-                log("Keyboard helper exited; restarting it")
-                time.sleep(0.5)
-                self._start()
+                with self._lock:
+                    if self.stopping:
+                        return
+                    if self.conn is not conn:
+                        continue
+                    log("Keyboard helper exited; restarting it")
+                    time.sleep(0.5)
+                    self._start()
                 continue
             self.on_event(msg)
 
     def set_recording(self, recording):
-        self.recording = recording
-        try:
-            self.conn.send(("recording", recording))
-        except (BrokenPipeError, OSError):
-            pass
+        with self._lock:
+            self.recording = recording
+            try:
+                self.conn.send(("recording", recording))
+            except (BrokenPipeError, OSError):
+                pass
+
+    def set_vk(self, vk):
+        with self._lock:
+            if self.vk == vk:
+                return
+            self.vk = vk
+            old_conn, old_proc = self.conn, self.proc
+            try:
+                old_conn.close()
+            except OSError:
+                pass
+            try:
+                old_proc.terminate()
+            except OSError:
+                pass
+            try:
+                old_proc.join(timeout=0.5)
+            except OSError:
+                pass
+            self._start()
+
+    set_key = set_vk
 
     def stop(self):
-        self.stopping = True
-        try:
-            self.conn.close()
-        except OSError:
-            pass
-        self.proc.terminate()
+        with self._lock:
+            self.stopping = True
+            try:
+                self.conn.close()
+            except OSError:
+                pass
+            try:
+                self.proc.terminate()
+            except OSError:
+                pass
