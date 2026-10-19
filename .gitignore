@@ -1,0 +1,32 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Build output (PyInstaller, Inno Setup) and generated packaging assets
+build/
+dist/
+packaging/chit.ico
+packaging/wizard_small.bmp
+
+# Models, caches and logs (Chit stores these in %LOCALAPPDATA%\Chit, but never commit them)
+models/
+ov-cache/
+*.log
+
+# Local-only release notes and guides
+release-prep/
+
+# Environment and OS files
+.env
+.env.*
+Thumbs.db
+desktop.ini
+.DS_Store
+*.lnk
+.vscode/
+.idea/

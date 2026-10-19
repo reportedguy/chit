@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chit"
+dynamic = ["version"]
+description = "Free, open-source, fully local voice dictation for Windows: hold Caps Lock, talk, and get clean text in any app."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "ReportedGuy" }]
+requires-python = ">=3.11,<3.13"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "openvino>=2026.0",
+    "openvino-genai>=2026.0",
+    "openvino-tokenizers>=2026.0",
+    "onnxruntime>=1.20",
+    "huggingface_hub>=0.30",
+    "sounddevice>=0.5",
+    "numpy>=1.26",
+    "pynput>=1.8",
+    "pyperclip>=1.9",
+    "pystray>=0.19",
+    "pillow>=10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "pyinstaller>=6.10"]
+
+[project.urls]
+Homepage = "https://github.com/reportedguy/chit"
+Issues = "https://github.com/reportedguy/chit/issues"
+
+[project.gui-scripts]
+chit = "chit.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "chit.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+chit = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = [
+    "SIM105",  # try/except/pass is clearer than contextlib.suppress in hot UI paths
+    "E402",    # scripts set DPI awareness / sys.path before importing
+]

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: python -m ruff check .
+      - name: Format check
+        run: python -m ruff format --check .
+      - name: Unit tests
+        run: python -m pytest
+
+  build:
+    name: Build installer (Windows)
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build Chit.exe and installer
+        run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -Python python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chit-installer
+          path: build/release/
+          retention-days: 14

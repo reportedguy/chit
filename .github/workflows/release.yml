@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish the Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Check the tag matches the app version
+        shell: pwsh
+        run: |
+          $version = (python -c "import chit; print(chit.__version__)").Trim()
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match src/chit/__init__.py version $version"
+          }
+          "VERSION=$version" >> $env:GITHUB_ENV
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build Chit.exe and installer
+        run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -Python python
+      - name: Release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $text = Get-Content CHANGELOG.md -Raw
+          $m = [regex]::Match($text, "(?s)## \[$([regex]::Escape($env:VERSION))\][^\n]*\n(.*?)(?=\n## \[|\n\[[^\]]+\]:|$)")
+          $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "See CHANGELOG.md." }
+          $notes += "`n`n**Install:** download ``ChitSetup-$env:VERSION.exe`` below and run it. If Windows SmartScreen appears, choose **More info → Run anyway** (the installer isn't code-signed yet). Verify the download with the ``.sha256`` file."
+          Set-Content release-notes.md $notes -Encoding utf8
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "build/release/ChitSetup-$env:VERSION.exe" `
+            "build/release/ChitSetup-$env:VERSION.exe.sha256" `
+            --title "Chit $env:VERSION" --notes-file release-notes.md

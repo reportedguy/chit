@@ -1,0 +1,49 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please don't include anything private you dictated.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Click into Notepad
+        2. Hold Caps Lock for 2 seconds and say "hello world"
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Chit version
+      description: Settings → Apps → Installed apps → Chit, or the first line of the log.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+  - type: input
+    id: hardware
+    attributes:
+      label: CPU / GPU / NPU
+      description: The tray menu shows which chips Chit uses (e.g. "Speech on NPU · Cleanup on GPU").
+      placeholder: "Intel Core Ultra 7 155U; Speech on NPU · Cleanup on GPU"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Tray → Open log, and paste the relevant lines (it doesn't contain dictated text unless you enabled debug_log).
+      render: text
