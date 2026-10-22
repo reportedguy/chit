@@ -54,4 +54,3 @@ def test_stored_invalid_hold_ms_falls_back_to_default(tmp_path, monkeypatch):
 
     path.write_text(json.dumps({"hold_ms": 600}))
     assert config.Settings()["hold_ms"] == 600
-
