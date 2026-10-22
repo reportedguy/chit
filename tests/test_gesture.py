@@ -118,6 +118,53 @@ def test_reset_after_auto_stop(g):
     assert g.calls[-1] == "start"
 
 
+def test_default_hold_ms(g):
+    assert g.hold_ms == 400
+    assert g.hold_s == 0.40
+
+
+def test_gestures_set_hold_ms(g):
+    g.set_hold_ms(600)
+    assert g.hold_ms == 600
+    assert g.hold_s == 0.60
+
+
+def test_custom_hold_ms_in_hands_free():
+    def make(hold_ms):
+        calls = []
+        gestures = Gestures(
+            start=lambda: calls.append("start"),
+            finish=lambda: calls.append("finish"),
+            cancel=lambda: calls.append("cancel"),
+            hands_free=lambda: calls.append("hands_free"),
+            hold_ms=hold_ms,
+        )
+        gestures.calls = calls
+        return gestures
+
+    # Fast preset (300 ms): a 0.35s press is >= 0.30s, so it is a long press (not a tap)
+    g_fast = make(hold_ms=300)
+    g_fast.tap(0.0, 0.08)
+    g_fast.tap(0.2, 0.28)
+    assert g_fast.state == "hands_free"
+    g_fast.key_down(5.0)
+    g_fast.key_up(5.35)  # 350 ms >= 300 ms
+    raw_tap(g_fast, 5.5)
+    g_fast.tick(6.0)
+    assert g_fast.state == "hands_free"
+
+    # Relaxed preset (600 ms): a 0.45s press is < 0.60s, so it DOES count as a tap
+    g_relaxed = make(hold_ms=600)
+    g_relaxed.tap(0.0, 0.08)
+    g_relaxed.tap(0.2, 0.28)
+    assert g_relaxed.state == "hands_free"
+    g_relaxed.key_down(5.0)
+    g_relaxed.key_up(5.45)  # 450 ms < 600 ms
+    raw_tap(g_relaxed, 5.6)
+    assert g_relaxed.calls[-1] == "finish"
+    assert g_relaxed.state == "idle"
+
+
 # --------------------------------------------------------------------------- #
 # TriggerKey (keyboard helper side)
 # --------------------------------------------------------------------------- #

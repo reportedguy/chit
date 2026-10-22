@@ -159,6 +159,14 @@ class Tray:
                     radio("language", "auto", "Auto-detect (may switch languages)"),
                 ),
             ),
+            Item(
+                "Hold time",
+                Menu(
+                    radio("hold_ms", 300, "Fast (300 ms)"),
+                    radio("hold_ms", 400, "Normal (400 ms)"),
+                    radio("hold_ms", 600, "Relaxed (600 ms)"),
+                ),
+            ),
             Item("Microphone", Menu(mic_items)),
             Item("Sounds", lambda: app.set_setting("sounds", not s["sounds"]), checked=lambda item: s["sounds"]),
             Item(
